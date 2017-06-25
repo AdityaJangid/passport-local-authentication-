@@ -10,9 +10,18 @@ var path = require('path');
 var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var mongoose = require('mongoose/');
+var  rrouter  = express.Router();
 
+mongoose.connect('mongodb://localhost:27017/MyDatabase');
 
-mongoose.connect('mongodb://localhost/MyDatabase');
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error'));
+db.once('open', function callback() {
+  console.log("Connection with database succeeded.");
+});
+
+console.log("123");
+
 var app = express();
 
 // all environments
@@ -39,7 +48,9 @@ var Schema = mongoose.Schema;
 
 var UserDetail = new Schema({
     username: String,
-    password: String
+    password: String,
+	email: String,
+	birthday: String,
 }, {collection: 'userInfo'});
 
 var UserDetails = mongoose.model('userInfo',UserDetail);
@@ -53,20 +64,47 @@ passport.deserializeUser(function(user, done) {
 });
 
 
+
 passport.use(new LocalStrategy(
-  function(username, password, done) {
-   
-    process.nextTick(function () {
-	  UserDetails.findOne({'username':username},
-		function(err, user) {
-			if (err) { return done(err); }
-			if (!user) { return done(null, false); }
-			if (user.password != password) { return done(null, false); }
-			return done(null, user);
+	function(username, password, done) {
+		console.log("username=", username); 
+		console.log("password=", password); 
+		process.nextTick(function () {
+			UserDetails.findOne({'username':username},
+				function(err, user) {
+					if (err) { return done(err); }
+					if (!user) { return done(null, false); }
+					if (user.password != password) { return done(null, false); }
+					return done(null, user);
+				}
+			);
 		});
-    });
-  }
+	}
 ));
+
+
+
+
+
+
+
+
+app.post('/signUp', function(req,res){
+var user  = new UserDetails(); 
+	user.username = req.body.username; 
+	user.password    = req.body.password; 
+	user.email    = req.body.email; 
+	user.birthday    = req.body.birthday; 
+	user.save(function(err){
+		if(err) {
+			 response = {"error" : true,"message" : "Error adding data"};
+		}
+		else {
+			 response = {"error" : false,"message" : "Data added"};
+		} res.json(response);
+	});
+
+});
 
 
 
@@ -76,11 +114,16 @@ app.get('/auth', function(req, res, next) {
 
 
 app.get('/loginFailure' , function(req, res, next){
-	res.send('Failure to authenticate');
+	/* res.send('Failure to authenticate'); */
+	res.setHeader('Content-Type', 'application/json');
+	res.send(JSON.stringify({"status": "Failure"}));
+
 });
 
 app.get('/loginSuccess' , function(req, res, next){
-	res.send('Successfully authenticated');
+	/* res.send('Successfully authenticated'); */
+	res.setHeader('Content-Type', 'application/json');
+	res.send(JSON.stringify({"status": "Success"}));
 });
 
 app.post('/login',
